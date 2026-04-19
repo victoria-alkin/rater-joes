@@ -67,6 +67,9 @@ export default function RecipesPage() {
           src={recipesHeader}
           className="w-full max-h-40 object-cover rounded shadow mb-2"
           alt="Recipes header"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
         />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
           <div className="flex-1 sm:max-w-xl">
@@ -108,7 +111,7 @@ export default function RecipesPage() {
           <p>No recipes match your search.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes.map((recipe) => (
+            {filteredRecipes.map((recipe, recipeIdx) => (
               <Link
                 to={`/recipes/${recipe.id}`}
                 key={recipe.id}
@@ -116,16 +119,19 @@ export default function RecipesPage() {
               >
                 {recipe.images?.length > 0 && (
                   <div className="flex gap-2 overflow-x-auto mb-3">
-                    {recipe.images.map((url, index) => (
-                      <LazyImage
-                        key={index}
-                        src={url}
-                        alt={`${recipe.title} ${index + 1}`}
-                        className="w-40 h-32 object-cover rounded cursor-pointer hover:opacity-90"
-                        placeholder="🍳"
-                        thumbnailSrc={recipe.thumbnailUrls?.[index] || null}
-                      />
-                    ))}
+                    {recipe.images.map((url, index) => {
+                      const thumb = recipe.thumbnailUrls?.[index] || null;
+                      return (
+                        <LazyImage
+                          key={index}
+                          src={thumb || url}
+                          alt={`${recipe.title} ${index + 1}`}
+                          className="w-40 h-32 object-cover rounded cursor-pointer hover:opacity-90"
+                          placeholder="🍳"
+                          priority={recipeIdx < 3 && index === 0}
+                        />
+                      );
+                    })}
                   </div>
                 )}
                 <h2 className="text-xl font-bold mb-1">{recipe.title}</h2>
@@ -164,6 +170,8 @@ export default function RecipesPage() {
         src={recipesFooter}
         className="w-full max-h-40 object-cover rounded shadow mb-2 mt-6"
         alt="Recipes footer"
+        loading="lazy"
+        decoding="async"
       />
       </main>
       <Footer />

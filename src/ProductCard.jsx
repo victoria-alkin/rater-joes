@@ -14,12 +14,16 @@ export default function ProductCard({
   season,
   newUntil,
   fromCategory,
+  priority = false,
 }) {
   const hasRating = typeof reviewCount === "number" && reviewCount > 0;
   const averageRating = hasRating ? Number(avgRating).toFixed(1) : null;
 
-  const displayImage = images?.length ? images[0] : image;
+  const fullImage = images?.length ? images[0] : image;
   const displayThumbnail = thumbnailUrls?.length ? thumbnailUrls[0] : null;
+  // Prefer the pre-generated thumbnail on cards. Fall back to the full image
+  // only if a thumbnail wasn't generated (older products).
+  const cardImage = displayThumbnail || fullImage;
 
   const seasonStyles = {
     Winter: { emoji: "❄️", bg: "bg-blue-100", text: "text-blue-700" },
@@ -51,21 +55,13 @@ export default function ProductCard({
             {style.emoji} Limited time: {season}
           </span>
         )}
-        {images && images.length > 0 ? (
+        {cardImage ? (
           <LazyImage
-            src={images[0]}
+            src={cardImage}
             alt={name}
             className="w-full h-full object-cover"
             placeholder="🛒"
-            thumbnailSrc={displayThumbnail}
-          />
-        ) : image ? (
-          <LazyImage
-            src={image}
-            alt={name}
-            className="w-full h-full object-cover"
-            placeholder="🛒"
-            thumbnailSrc={displayThumbnail}
+            priority={priority}
           />
         ) : (
           <div className="w-full h-full bg-gray-200 flex items-center justify-center">

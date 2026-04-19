@@ -32,13 +32,13 @@ export default function NewArrivals() {
   return (
     <div className="flex flex-col min-h-screen bg-orange-50 text-black">
       <Navbar />
-      <main className="flex-grow max-w-5xl mx-auto px-4 py-10">
-        <img
-          src={newArrivalsHeader}
-          alt="New Arrivals Header"
-          className="w-full max-h-64 object-cover rounded shadow mb-6"
-          style={{ objectPosition: 'center 40%' }}
-        />
+      <img
+        src={newArrivalsHeader}
+        alt="New Arrivals Header"
+        className="w-full h-48 sm:h-64 object-cover shadow"
+        style={{ objectPosition: 'center 40%' }}
+      />
+      <main className="flex-grow max-w-5xl mx-auto px-4 py-10 w-full">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">🆕 New Arrivals</h1>
           <Link
@@ -55,8 +55,13 @@ export default function NewArrivals() {
           <div className="text-center text-lg">No new arrivals at the moment.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} productId={product.id} {...product} />
+            {products.map((product, idx) => (
+              <ProductCard
+                key={product.id}
+                productId={product.id}
+                {...product}
+                priority={idx < 6}
+              />
             ))}
           </div>
         )}

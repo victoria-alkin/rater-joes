@@ -1,52 +1,51 @@
 import { useState, useRef, useEffect } from 'react';
 
-export default function LazyImage({ 
-  src, 
-  alt, 
-  className = "", 
+export default function LazyImage({
+  src,
+  alt,
+  className = "",
   placeholder = "🛒",
   thumbnailSrc = null, // Low-res thumbnail URL
   onLoad,
   onError,
-  onClick
+  onClick,
+  priority = false, // Skip lazy loading for above-the-fold images
 }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [isInView, setIsInView] = useState(false);
+  const [isInView, setIsInView] = useState(priority);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
   const containerRef = useRef(null);
   const observerRef = useRef(null);
 
   useEffect(() => {
-    // Create intersection observer
+    if (priority) return;
+
     observerRef.current = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsInView(true);
-          // Once in view, we can stop observing
           if (containerRef.current) {
             observerRef.current.unobserve(containerRef.current);
           }
         }
       },
       {
-        rootMargin: '100px', // Start loading 100px before the image comes into view
-        threshold: 0.01
+        rootMargin: '100px',
+        threshold: 0.01,
       }
     );
 
-    // Start observing
     if (containerRef.current) {
       observerRef.current.observe(containerRef.current);
     }
 
-    // Cleanup
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
     };
-  }, []);
+  }, [priority]);
 
   const handleLoad = () => {
     setIsLoaded(true);
@@ -93,36 +92,39 @@ export default function LazyImage({
       {/* Images (only render when in view and not error) */}
       {isInView && !hasError && (
         <>
-          {/* Thumbnail (low-res) - loads first */}
-          {thumbnailSrc && (
+          {/* Thumbnail (low-res) - loads first, only shown if we're also loading a higher-res src */}
+          {thumbnailSrc && thumbnailSrc !== src && (
             <img
               src={thumbnailSrc}
               alt={alt}
               className="absolute inset-0 w-full h-full object-cover"
               style={{
                 opacity: thumbnailLoaded ? 1 : 0,
-                zIndex: 1
+                zIndex: 1,
               }}
               onLoad={handleThumbnailLoad}
-              onError={() => setThumbnailLoaded(false)} // Don't show error for thumbnail
+              onError={() => setThumbnailLoaded(false)}
               onClick={handleClick}
-              loading="lazy"
+              loading={priority ? "eager" : "lazy"}
+              decoding="async"
             />
           )}
 
-          {/* High-res image - fades in over thumbnail */}
+          {/* Main image */}
           <img
             src={src}
             alt={alt}
             className="absolute inset-0 w-full h-full object-cover"
             style={{
               opacity: isLoaded ? 1 : 0,
-              zIndex: 2
+              zIndex: 2,
             }}
             onLoad={handleLoad}
             onError={handleError}
             onClick={handleClick}
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            fetchpriority={priority ? "high" : "auto"}
           />
         </>
       )}

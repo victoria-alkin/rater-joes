@@ -92,7 +92,7 @@ export default function CategoryPage() {
 
               {filteredProducts.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {filteredProducts.map((product) => (
+                  {filteredProducts.map((product, idx) => (
                     <ProductCard
                       key={product.id}
                       productId={product.id}
@@ -108,6 +108,7 @@ export default function CategoryPage() {
                       season={product.season}
                       newUntil={product.newUntil}
                       fromCategory={displayCategory}
+                      priority={idx < 6}
                     />
                   ))}
                 </div>

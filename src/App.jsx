@@ -200,7 +200,7 @@ export default function App() {
 
         {/* Mobile: show all categories as bins with 2 products each, stacked vertically */}
         <div className="sm:hidden flex flex-col items-center mt-3 gap-2">
-          {categories.map((cat) => {
+          {categories.map((cat, catIndex) => {
             const catProducts = categorized[cat] || [];
             if (catProducts.length === 0) return null;
             return (
@@ -209,7 +209,7 @@ export default function App() {
                   <h2 className="text-lg font-semibold">{cat}</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {catProducts.slice(0, 2).map((product) => (
+                  {catProducts.slice(0, 2).map((product, idx) => (
                     <ProductCard
                       key={product.id}
                       productId={product.id}
@@ -225,6 +225,7 @@ export default function App() {
                       seasonal={product.seasonal}
                       season={product.season}
                       newUntil={product.newUntil}
+                      priority={catIndex === 0 && idx < 2}
                     />
                   ))}
                 </div>
@@ -248,7 +249,7 @@ export default function App() {
               No products match your search.
             </p>
           ) : (
-            categories.map((cat) => {
+            categories.map((cat, catIndex) => {
               const catProducts = categorized[cat] || [];
               if (catProducts.length === 0) return null;
               return (
@@ -259,6 +260,7 @@ export default function App() {
                   products={catProducts}
                   onReviewSubmit={handleReviewSubmit}
                   user={user}
+                  isFirst={catIndex === 0}
                 />
               );
             })
@@ -272,7 +274,7 @@ export default function App() {
   );
 }
 
-function CategorySection({ id, title, products, onReviewSubmit, user }) {
+function CategorySection({ id, title, products, onReviewSubmit, user, isFirst = false }) {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
 
@@ -301,7 +303,7 @@ function CategorySection({ id, title, products, onReviewSubmit, user }) {
       {isOpen && (
         <div className="transition-all duration-300 ease-in-out">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {preview.map((product) => (
+            {preview.map((product, idx) => (
               <ProductCard
                 key={product.id}
                 productId={product.id}
@@ -317,6 +319,7 @@ function CategorySection({ id, title, products, onReviewSubmit, user }) {
                 seasonal={product.seasonal}
                 season={product.season}
                 newUntil={product.newUntil}
+                priority={isFirst && idx < 6}
               />
             ))}
           </div>

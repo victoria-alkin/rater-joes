@@ -79,7 +79,7 @@ export default function Seasonal() {
             <span className="inline sm:hidden">+</span>
           </Link>
         </div>
-        <ProductGrid products={seasonalProducts[currentSeason] || []} />
+        <ProductGrid products={seasonalProducts[currentSeason] || []} priority />
 
         {/* Add gap before other seasons banner */}
         <div className="mb-10"></div>
@@ -105,14 +105,14 @@ export default function Seasonal() {
   );
 }
 
-function ProductGrid({ products }) {
+function ProductGrid({ products, priority = false }) {
   if (products.length === 0) {
     return <p className="text-gray-500 italic">No seasonal products yet.</p>;
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-      {products.map((product) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      {products.map((product, idx) => (
         <ProductCard
           key={product.id}
           productId={product.id}
@@ -126,6 +126,7 @@ function ProductGrid({ products }) {
           seasonal={product.seasonal}
           season={product.season}
           newUntil={product.newUntil}
+          priority={priority && idx < 3}
         />
       ))}
     </div>
