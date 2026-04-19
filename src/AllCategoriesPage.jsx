@@ -31,11 +31,21 @@ export default function AllCategoriesPage() {
                 className="group block bg-white rounded-lg shadow hover:shadow-md transition p-3 text-center"
               >
                 {image ? (
-                  <img
-                    src={image}
-                    alt={category}
-                    className="w-full h-32 object-cover rounded mb-3"
-                  />
+                  <div className="w-full h-32 rounded mb-3 overflow-hidden">
+                    <img
+                      src={image}
+                      alt={category}
+                      className="w-full h-full object-cover"
+                      style={
+                        category === "Plants and Flowers"
+                          ? {
+                              transform: "scale(2.3)",
+                              transformOrigin: "60% 85%",
+                            }
+                          : undefined
+                      }
+                    />
+                  </div>
                 ) : (
                   <div className="w-full h-32 bg-rose-100 rounded mb-3 flex items-center justify-center text-4xl">
                     🛒
