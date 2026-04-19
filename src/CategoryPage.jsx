@@ -22,7 +22,6 @@ const slugToCategory = Object.fromEntries(categories.map(cat => [slugifyCategory
 export default function CategoryPage() {
   const { categoryName } = useParams();
   const [products, setProducts] = useState([]);
-  const [reviewsByProduct, setReviewsByProduct] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
 
   const slug = decodeURIComponent(categoryName);
@@ -47,21 +46,6 @@ export default function CategoryPage() {
     };
     fetchProducts();
   }, [displayCategory, validCategory]);
-
-  useEffect(() => {
-    // Fetch all reviews and group by productId
-    const fetchReviews = async () => {
-      const snap = await getDocs(collection(db, "reviews"));
-      const reviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const grouped = {};
-      for (const review of reviews) {
-        if (!grouped[review.productId]) grouped[review.productId] = [];
-        grouped[review.productId].push(review);
-      }
-      setReviewsByProduct(grouped);
-    };
-    fetchReviews();
-  }, []);
 
   const filteredProducts = products.filter((product) => {
     const q = searchQuery.toLowerCase();
@@ -117,7 +101,8 @@ export default function CategoryPage() {
                       images={product.images}
                       thumbnailUrls={product.thumbnailUrls}
                       description={product.description}
-                      reviews={reviewsByProduct[product.id] || []}
+                      avgRating={product.avgRating}
+                      reviewCount={product.reviewCount}
                       user={null}
                       seasonal={product.seasonal}
                       season={product.season}

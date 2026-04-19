@@ -8,17 +8,15 @@ export default function ProductCard({
   thumbnailUrls,
   description,
   productId,
-  reviews = [],
+  avgRating,
+  reviewCount,
   seasonal,
   season,
   newUntil,
   fromCategory,
 }) {
-  const averageRating = reviews.length
-    ? (
-        reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      ).toFixed(1)
-    : null;
+  const hasRating = typeof reviewCount === "number" && reviewCount > 0;
+  const averageRating = hasRating ? Number(avgRating).toFixed(1) : null;
 
   const displayImage = images?.length ? images[0] : image;
   const displayThumbnail = thumbnailUrls?.length ? thumbnailUrls[0] : null;
@@ -33,8 +31,6 @@ export default function ProductCard({
   const style = seasonStyles[season] || {};
 
   const isNew = newUntil && new Date() < new Date(newUntil);
-
-  console.log({ name, seasonal, season });
 
   return (
     <Link
