@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   collection,
   addDoc,
@@ -10,7 +10,9 @@ import {
   getDoc,
   deleteDoc,
   getDocs,
-  setDoc
+  setDoc,
+  documentId,
+  where,
 } from "firebase/firestore";
 import {
   ref,
@@ -93,13 +95,35 @@ export default function ChatBoard() {
   const [taggedProducts, setTaggedProducts] = useState([]);
   const [commentTaggedProducts, setCommentTaggedProducts] = useState({});
   const [commentProductSearch, setCommentProductSearch] = useState({});
+  const userCacheRef = useRef(new Map());
+
+  const fetchNicknames = async (userIds) => {
+    const unique = [...new Set(userIds.filter(Boolean))];
+    const missing = unique.filter((uid) => !userCacheRef.current.has(uid));
+    for (let i = 0; i < missing.length; i += 30) {
+      const chunk = missing.slice(i, i + 30);
+      const snap = await getDocs(
+        query(collection(db, "users"), where(documentId(), "in", chunk))
+      );
+      const found = new Set();
+      snap.forEach((d) => {
+        const data = d.data();
+        userCacheRef.current.set(d.id, data.nickname || data.email || "Anonymous");
+        found.add(d.id);
+      });
+      chunk.forEach((uid) => {
+        if (!found.has(uid)) userCacheRef.current.set(uid, "Anonymous");
+      });
+    }
+    return userCacheRef.current;
+  };
 
   useEffect(() => {
     const param = searchParams.get("post");
     if (param) {
       setHighlightedPostId(param);
     }
-  }, [searchParams]);  
+  }, [searchParams]);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -119,26 +143,14 @@ export default function ChatBoard() {
   useEffect(() => {
     const q = query(collection(db, "chat_posts"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const list = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          const data = docSnap.data();
-          let nickname = null;
-          if (data.userId) {
-            const userDoc = await getDoc(doc(db, "users", data.userId));
-            if (userDoc.exists()) {
-              nickname = userDoc.data().nickname;
-            }
-          }
-          return {
-            id: docSnap.id,
-            ...data,
-            nickname: nickname || "Anonymous",
-          };
-        })
-      );
-      setPosts(list);          
+      const raw = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const cache = await fetchNicknames(raw.map((p) => p.userId));
+      const list = raw.map((p) => ({
+        ...p,
+        nickname: cache.get(p.userId) || "Anonymous",
+      }));
+      setPosts(list);
 
-      // Expand all posts initially
       const initialExpanded = {};
       list.forEach((post) => {
         initialExpanded[post.id] = true;
@@ -168,42 +180,38 @@ export default function ChatBoard() {
   }, [highlightedPostId, posts]);  
 
   useEffect(() => {
+    const unsubscribers = [];
+
     posts.forEach((post) => {
       const commentQuery = query(
         collection(db, "chat_posts", post.id, "comments"),
         orderBy("createdAt", "asc")
       );
 
-      onSnapshot(commentQuery, async (snapshot) => {
-        const commentList = await Promise.all(
-          snapshot.docs.map(async (docSnap) => {
-            const data = docSnap.data();
-            let nickname = null;
-            if (data.userId) {
-              const userDoc = await getDoc(doc(db, "users", data.userId));
-              if (userDoc.exists()) {
-                nickname = userDoc.data().nickname;
-              }
-            }
-            return {
-              id: docSnap.id,
-              ...data,
-              nickname: nickname || "Anonymous",
-            };
-          })
-        );
+      const unsubComments = onSnapshot(commentQuery, async (snapshot) => {
+        const raw = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const cache = await fetchNicknames(raw.map((c) => c.userId));
+        const commentList = raw.map((c) => ({
+          ...c,
+          nickname: cache.get(c.userId) || "Anonymous",
+        }));
         setComments((prev) => ({ ...prev, [post.id]: commentList }));
       });
+      unsubscribers.push(unsubComments);
 
-      // Listen for post likes
       const likesRef = collection(db, "chat_posts", post.id, "likes");
-      onSnapshot(likesRef, (snapshot) => {
+      const unsubLikes = onSnapshot(likesRef, (snapshot) => {
         setLikes((prev) => ({
           ...prev,
-          [post.id]: snapshot.docs.map((doc) => doc.id)
+          [post.id]: snapshot.docs.map((d) => d.id),
         }));
       });
+      unsubscribers.push(unsubLikes);
     });
+
+    return () => {
+      unsubscribers.forEach((u) => u());
+    };
   }, [posts]);
 
   // Set up comment likes listeners
@@ -229,47 +237,39 @@ export default function ChatBoard() {
   }, [comments]);
 
   useEffect(() => {
-    // Fetch nicknames for all likers of all posts
-    async function fetchNicknames() {
-      const allLikerIds = new Set();
-      Object.values(likes).forEach((ids) => ids && ids.forEach((id) => allLikerIds.add(id)));
-      const nicknameMap = {};
-      await Promise.all(
-        Array.from(allLikerIds).map(async (uid) => {
-          if (!uid) return;
-          try {
-            const userDoc = await getDoc(doc(db, "users", uid));
-            nicknameMap[uid] = userDoc.exists() ? (userDoc.data().nickname || userDoc.data().email || "Anonymous") : "Anonymous";
-          } catch {
-            nicknameMap[uid] = "Anonymous";
-          }
-        })
-      );
-      setLikerNicknames(nicknameMap);
-    }
-    if (Object.keys(likes).length > 0) fetchNicknames();
+    if (Object.keys(likes).length === 0) return;
+    let cancelled = false;
+    const allLikerIds = new Set();
+    Object.values(likes).forEach((ids) => ids && ids.forEach((id) => allLikerIds.add(id)));
+    fetchNicknames([...allLikerIds]).then((cache) => {
+      if (cancelled) return;
+      const map = {};
+      allLikerIds.forEach((uid) => {
+        map[uid] = cache.get(uid) || "Anonymous";
+      });
+      setLikerNicknames(map);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [likes]);
 
   useEffect(() => {
-    // Fetch nicknames for all likers of all comments
-    async function fetchCommentNicknames() {
-      const allCommentLikerIds = new Set();
-      Object.values(commentLikes).forEach((ids) => ids && ids.forEach((id) => allCommentLikerIds.add(id)));
-      const nicknameMap = {};
-      await Promise.all(
-        Array.from(allCommentLikerIds).map(async (uid) => {
-          if (!uid) return;
-          try {
-            const userDoc = await getDoc(doc(db, "users", uid));
-            nicknameMap[uid] = userDoc.exists() ? (userDoc.data().nickname || userDoc.data().email || "Anonymous") : "Anonymous";
-          } catch {
-            nicknameMap[uid] = "Anonymous";
-          }
-        })
-      );
-      setCommentLikerNicknames(nicknameMap);
-    }
-    if (Object.keys(commentLikes).length > 0) fetchCommentNicknames();
+    if (Object.keys(commentLikes).length === 0) return;
+    let cancelled = false;
+    const allCommentLikerIds = new Set();
+    Object.values(commentLikes).forEach((ids) => ids && ids.forEach((id) => allCommentLikerIds.add(id)));
+    fetchNicknames([...allCommentLikerIds]).then((cache) => {
+      if (cancelled) return;
+      const map = {};
+      allCommentLikerIds.forEach((uid) => {
+        map[uid] = cache.get(uid) || "Anonymous";
+      });
+      setCommentLikerNicknames(map);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [commentLikes]);
 
   useEffect(() => {
