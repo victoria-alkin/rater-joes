@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from './firebase';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, documentId } from 'firebase/firestore';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { Link } from 'react-router-dom';
@@ -20,7 +20,6 @@ export default function TrendingPage() {
       setLoading(true);
       const since = get14DaysAgo();
 
-      // 1. Fetch recent high reviews
       let reviewsSnap;
       try {
         const reviewsQ = query(
@@ -29,7 +28,6 @@ export default function TrendingPage() {
           where('rating', '>=', 4)
         );
         reviewsSnap = await getDocs(reviewsQ);
-        console.log('Fetched reviews:', reviewsSnap.docs.map(d => d.data()));
       } catch (e) {
         console.error('Failed to fetch reviews:', e);
         setLoading(false);
@@ -42,9 +40,7 @@ export default function TrendingPage() {
           reviewCounts[data.productId] = (reviewCounts[data.productId] || 0) + 1;
         }
       });
-      console.log('Review counts by productId:', reviewCounts);
 
-      // 2. Fetch recent recipes and count product mentions
       let recipesSnap;
       try {
         const recipesQ = query(
@@ -68,29 +64,32 @@ export default function TrendingPage() {
         }
       });
 
-      // 3. Combine scores
       const productScores = {};
-      const allProductIds = new Set([
+      const allProductIds = Array.from(new Set([
         ...Object.keys(reviewCounts),
         ...Object.keys(recipeCounts)
-      ]);
+      ]));
       allProductIds.forEach(pid => {
         productScores[pid] = (reviewCounts[pid] || 0) * 2 + (recipeCounts[pid] || 0);
       });
 
-      // 4. Fetch product details
-      const productDetails = await Promise.all(
-        Array.from(allProductIds).map(async (pid) => {
-          const snap = await getDocs(query(collection(db, 'products'), where('__name__', '==', pid)));
-          if (!snap.empty) {
-            const productData = { id: pid, ...snap.docs[0].data(), score: productScores[pid], reviewCount: reviewCounts[pid] || 0, recipeCount: recipeCounts[pid] || 0 };
-            console.log('Trending product:', productData);
-            return productData;
-          }
-          return null;
-        })
-      );
-      const trending = productDetails.filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 12);
+      const productDetails = [];
+      for (let i = 0; i < allProductIds.length; i += 30) {
+        const chunk = allProductIds.slice(i, i + 30);
+        const snap = await getDocs(
+          query(collection(db, 'products'), where(documentId(), 'in', chunk))
+        );
+        snap.forEach(d => {
+          productDetails.push({
+            id: d.id,
+            ...d.data(),
+            score: productScores[d.id],
+            reviewCount: reviewCounts[d.id] || 0,
+            recipeCount: recipeCounts[d.id] || 0,
+          });
+        });
+      }
+      const trending = productDetails.sort((a, b) => b.score - a.score).slice(0, 12);
       setTrendingProducts(trending);
       setLoading(false);
     }

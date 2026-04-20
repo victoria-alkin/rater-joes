@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "./firebase";
 import { useNavigate } from "react-router-dom";
 
@@ -12,7 +12,8 @@ export default function NewActivityWindow() {
   useEffect(() => {
     const postQuery = query(
       collection(db, "chat_posts"),
-      where("createdAt", "!=", null)
+      orderBy("createdAt", "desc"),
+      limit(12)
     );
     const unsubscribePosts = onSnapshot(postQuery, (snapshot) => {
       const postList = snapshot.docs.map((doc) => ({
@@ -26,7 +27,9 @@ export default function NewActivityWindow() {
 
     const recipeQuery = query(
       collection(db, "recipes"),
-      where("approved", "==", true)
+      where("approved", "==", true),
+      orderBy("createdAt", "desc"),
+      limit(12)
     );
     const unsubscribeRecipes = onSnapshot(recipeQuery, (snapshot) => {
       const recipeList = snapshot.docs.map((doc) => ({
