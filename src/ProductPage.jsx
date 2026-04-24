@@ -7,9 +7,6 @@ import {
   getDoc,
   query,
   where,
-  onSnapshot,
-  addDoc,
-  serverTimestamp,
   getDocs,
   deleteDoc,
 } from "firebase/firestore";
@@ -39,7 +36,6 @@ import React from "react";
 import { Helmet } from "react-helmet-async";
 import { saveProduct, unsaveProduct, getSavedProductIds } from './utils/savedListUtils';
 import EditReviewForm from "./EditReviewForm";
-import categories from "./categories";
 
 function UniversalWhatsappShareButton({ url }) {
   const handleClick = (e) => {
@@ -71,7 +67,8 @@ export default function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
+  const isAdmin = userProfile?.isAdmin ?? false;
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -82,7 +79,7 @@ export default function ProductPage() {
   const [reviewLightboxOpen, setReviewLightboxOpen] = useState(false);
   const [reviewLightboxImages, setReviewLightboxImages] = useState([]);
   const [reviewLightboxIndex, setReviewLightboxIndex] = useState(0);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [reviewVersion, setReviewVersion] = useState(0);
   const [copied, setCopied] = useCopyState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -115,7 +112,7 @@ export default function ProductPage() {
     }
   };  
 
-  const handleReviewSubmit = () => {};
+  const handleReviewSubmit = () => setReviewVersion((v) => v + 1);
 
   const handleDeleteReview = async (reviewId) => {
     const confirmed = window.confirm("Are you sure you want to delete this review?");
@@ -197,39 +194,30 @@ export default function ProductPage() {
   };  
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      if (!user) return;
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      setIsAdmin(userDoc.exists() && userDoc.data().isAdmin === true);
-    };
-    checkAdmin();
-  }, [user]);
+    fetchProduct();
+  }, [id]);
 
   useEffect(() => {
-    fetchProduct();
-
-    const q = query(collection(db, "reviews"), where("productId", "==", id));
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    let cancelled = false;
+    const loadReviews = async () => {
+      const q = query(collection(db, "reviews"), where("productId", "==", id));
+      const snapshot = await getDocs(q);
       const reviewsWithImages = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const review = { id: docSnap.id, ...docSnap.data() };
-
           const imageDocs = await getDocs(collection(db, `reviews/${docSnap.id}/images`));
-          const allImages = imageDocs.docs.map((imgDoc) => imgDoc.data());
+          const allImages = imageDocs.docs.map((d) => d.data());
           const approvedImages = allImages.filter((img) => img.approved);
-
           review.images = approvedImages;
           review._hasPendingImages = allImages.length > 0 && approvedImages.length === 0;
-
           return review;
         })
       );
-
-      setReviews(reviewsWithImages);
-    });
-
-    return () => unsubscribe();
-  }, [id]);
+      if (!cancelled) setReviews(reviewsWithImages);
+    };
+    loadReviews();
+    return () => { cancelled = true; };
+  }, [id, reviewVersion]);
 
   useEffect(() => {
     if (!user || !product) {
@@ -284,11 +272,12 @@ export default function ProductPage() {
     sortedReviews.sort((a, b) => a.rating - b.rating);
   }
 
-  const shareUrl = `https://rater-joes-next.vercel.app/product/${id}`;
+  const shareUrl = `${window.location.origin}/products/${id}`;
 
-  const handleReviewUpdate = (updatedReviewId) => {
+  const handleReviewUpdate = () => {
     setEditingReviewId(null);
     fetchProduct();
+    setReviewVersion((v) => v + 1);
   };
 
   return (
@@ -354,7 +343,7 @@ export default function ProductPage() {
                 <UniversalWhatsappShareButton url={shareUrl} />
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(`https://rater-joes.vercel.app/products/${id}`);
+                    navigator.clipboard.writeText(shareUrl);
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1500);
                   }}

@@ -1,48 +1,17 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import { getDoc, doc, getDocs, collection } from "firebase/firestore";
-import { db } from "./firebase";
 import { useEffect, useState, useRef } from "react";
 import { Menu, X } from "lucide-react";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
-  const [nickname, setNickname] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, logout, userProfile } = useAuth();
+  const nickname = userProfile?.nickname ?? null;
+  const isAdmin = userProfile?.isAdmin ?? false;
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileAdminOpen, setMobileAdminOpen] = useState(false);
   const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const fetchNickname = async () => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setNickname(userDoc.data().nickname || null);
-        }
-      }
-    };
-
-    const checkAdmin = async () => {
-      if (user) {
-        try {
-          console.log("Checking admin status for:", user.email);
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          const isAdminUser = userDoc.exists() && userDoc.data().isAdmin === true;
-          console.log("User is admin:", isAdminUser);
-          setIsAdmin(isAdminUser);
-        } catch (err) {
-          console.error("Error checking admin status:", err);
-          setIsAdmin(false);
-        }
-      }
-    };
-    
-    fetchNickname();
-    checkAdmin();
-  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

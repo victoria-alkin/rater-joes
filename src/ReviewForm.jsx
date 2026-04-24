@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db, getStorage } from "./firebase";
 import { useParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
@@ -13,7 +13,7 @@ export default function ReviewForm({ onSubmit }) {
   const [inputKey, setInputKey] = useState(0);
 
   const { id: productId } = useParams();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -47,13 +47,7 @@ export default function ReviewForm({ onSubmit }) {
         return;
       }
 
-      let nickname = null;
-      if (includeName) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          nickname = userDoc.data().nickname || null;
-        }
-      }
+      const nickname = includeName ? (userProfile?.nickname ?? null) : null;
 
       const reviewRef = await addDoc(collection(db, "reviews"), {
         productId,

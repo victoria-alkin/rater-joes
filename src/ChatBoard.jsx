@@ -7,7 +7,6 @@ import {
   query,
   orderBy,
   doc,
-  getDoc,
   deleteDoc,
   getDocs,
   setDoc,
@@ -70,8 +69,8 @@ function renderPostText(text, taggedProducts) {
 }
 
 export default function ChatBoard() {
-  const { user } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, userProfile } = useAuth();
+  const isAdmin = userProfile?.isAdmin ?? false;
   const [posts, setPosts] = useState([]);
   const [newPostText, setNewPostText] = useState("");
   const [newPostImages, setNewPostImages] = useState([null]);
@@ -125,20 +124,6 @@ export default function ChatBoard() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    const checkAdmin = async () => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          setIsAdmin(userDoc.exists() && userDoc.data().isAdmin === true);
-        } catch (error) {
-          console.error("Error checking admin status:", error);
-          setIsAdmin(false);
-        }
-      }
-    };
-    checkAdmin();
-  }, [user]);
 
   useEffect(() => {
     const q = query(collection(db, "chat_posts"), orderBy("createdAt", "desc"));

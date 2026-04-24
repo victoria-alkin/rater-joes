@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { auth } from "./firebase";
+import { auth, db } from "./firebase";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -8,14 +8,32 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
 } from "firebase/auth";
+import { getDoc, doc } from "firebase/firestore";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, setUser);
+    return onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        try {
+          const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+          const data = snap.exists() ? snap.data() : {};
+          setUserProfile({
+            nickname: data.nickname || null,
+            isAdmin: data.isAdmin === true,
+          });
+        } catch {
+          setUserProfile({ nickname: null, isAdmin: false });
+        }
+      } else {
+        setUserProfile(null);
+      }
+    });
   }, []);
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
@@ -25,7 +43,7 @@ export function AuthProvider({ children }) {
   const sendVerificationEmail = () => sendEmailVerification(auth.currentUser);
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, resetPassword, sendVerificationEmail }}>
+    <AuthContext.Provider value={{ user, userProfile, login, signup, logout, resetPassword, sendVerificationEmail }}>
       {children}
     </AuthContext.Provider>
   );
